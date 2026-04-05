@@ -18,7 +18,7 @@ The Garmin Connect integration allows you to expose data from Garmin Connect to 
 
 ## 📦 Installation
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=cyberjunky&repository=home-assistant-garmin_connect&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=invertedburger&repository=home-assistant-garmin_connect&category=integration)
 
 ## Configuration
 
