@@ -79,7 +79,10 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
             errors = {"base": "cannot_connect"}
         except GarminConnectAuthenticationError as err:
             _LOGGER.error("Authentication error during login: %s", err)
-            errors = {"base": "invalid_auth"}
+            if "429" in str(err):
+                errors = {"base": "too_many_requests"}
+            else:
+                errors = {"base": "invalid_auth"}
         except GarminConnectTooManyRequestsError:
             errors = {"base": "too_many_requests"}
         except requests.exceptions.HTTPError as err:
