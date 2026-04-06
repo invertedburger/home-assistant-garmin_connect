@@ -251,12 +251,14 @@ class GarminConnectDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _login_with_proxy(self, token: str) -> None:
         """Run api.login(token) with proxy env vars set if configured."""
+        _LOGGER.debug("Token login proxy configured: %s", bool(self._proxy))
         if not self._proxy:
             self.api.login(token)
             return
-        old = {k: os.environ.get(k) for k in ("HTTP_PROXY", "HTTPS_PROXY")}
-        os.environ["HTTP_PROXY"] = self._proxy
-        os.environ["HTTPS_PROXY"] = self._proxy
+        proxy_keys = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy")
+        old = {k: os.environ.get(k) for k in proxy_keys}
+        for k in proxy_keys:
+            os.environ[k] = self._proxy
         try:
             self.api.login(token)
         finally:

@@ -110,11 +110,15 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
     def _do_login(self) -> tuple:
         """Run api.login() with proxy env vars set if configured."""
+        _LOGGER.debug("Login proxy configured: %s", bool(self._proxy))
         if not self._proxy:
             return self._api.login()
-        old = {k: os.environ.get(k) for k in ("HTTP_PROXY", "HTTPS_PROXY")}
-        os.environ["HTTP_PROXY"] = self._proxy
-        os.environ["HTTPS_PROXY"] = self._proxy
+        # Set all variants — requests uses uppercase, libcurl/curl_cffi uses lowercase on Linux
+        proxy_keys = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy")
+        old = {k: os.environ.get(k) for k in proxy_keys}
+        for k in proxy_keys:
+            os.environ[k] = self._proxy
+        _LOGGER.debug("Proxy env vars set for login")
         try:
             return self._api.login()
         finally:
