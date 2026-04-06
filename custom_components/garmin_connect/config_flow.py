@@ -1,6 +1,7 @@
 """Config flow for Garmin Connect integration."""
 
 import logging
+import os
 from collections.abc import Mapping
 from typing import Any, cast
 import requests
@@ -70,11 +71,10 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         self._api = Garmin(email=self._username,
                            password=self._password, return_on_mfa=True, is_cn=self._in_china)
 
-        if self._proxy:
-            self._api.client.cs.proxies = {"https": self._proxy, "http": self._proxy}
-
         try:
-            self._login_result1, self._login_result2 = await self.hass.async_add_executor_job(self._api.login)
+            self._login_result1, self._login_result2 = await self.hass.async_add_executor_job(
+                self._do_login
+            )
 
             if self._login_result1 == "needs_mfa":  # MFA is required
                 return await self.async_step_mfa()
@@ -107,6 +107,22 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
             )
 
         return await self._async_create_entry()
+
+    def _do_login(self) -> tuple:
+        """Run api.login() with proxy env vars set if configured."""
+        if not self._proxy:
+            return self._api.login()
+        old = {k: os.environ.get(k) for k in ("HTTP_PROXY", "HTTPS_PROXY")}
+        os.environ["HTTP_PROXY"] = self._proxy
+        os.environ["HTTPS_PROXY"] = self._proxy
+        try:
+            return self._api.login()
+        finally:
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
     async def _async_garmin_connect_mfa_login(self) -> ConfigFlowResult:
         """

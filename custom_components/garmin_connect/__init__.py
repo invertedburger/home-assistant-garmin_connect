@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable
 from datetime import datetime, timedelta
 import logging
+import os
 from zoneinfo import ZoneInfo
 import requests
 from garminconnect import (
@@ -181,9 +182,7 @@ class GarminConnectDataUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("Time zone: %s", self.time_zone)
 
         self.api = Garmin(is_cn=self._in_china)
-        proxy = entry.data.get(CONF_PROXY)
-        if proxy:
-            self.api.client.cs.proxies = {"https": proxy, "http": proxy}
+        self._proxy: str | None = entry.data.get(CONF_PROXY)
 
         super().__init__(hass, _LOGGER, name=DOMAIN,
                          update_interval=DEFAULT_UPDATE_INTERVAL)
@@ -212,7 +211,9 @@ class GarminConnectDataUpdateCoordinator(DataUpdateCoordinator):
                     "A reauthentication flow will be initiated. Please check your notifications."
                 )
 
-            await self.hass.async_add_executor_job(self.api.login, self.entry.data[CONF_TOKEN])
+            await self.hass.async_add_executor_job(
+                self._login_with_proxy, self.entry.data[CONF_TOKEN]
+            )
         except ConfigEntryAuthFailed:
             # Re-raise ConfigEntryAuthFailed without logging as "unknown error"
             raise
@@ -247,6 +248,23 @@ class GarminConnectDataUpdateCoordinator(DataUpdateCoordinator):
             return False
 
         return True
+
+    def _login_with_proxy(self, token: str) -> None:
+        """Run api.login(token) with proxy env vars set if configured."""
+        if not self._proxy:
+            self.api.login(token)
+            return
+        old = {k: os.environ.get(k) for k in ("HTTP_PROXY", "HTTPS_PROXY")}
+        os.environ["HTTP_PROXY"] = self._proxy
+        os.environ["HTTPS_PROXY"] = self._proxy
+        try:
+            self.api.login(token)
+        finally:
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
     async def _async_update_data(self) -> dict:
         """
