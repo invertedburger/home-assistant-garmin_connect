@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import (
+    CONF_PROXY,
     DATA_COORDINATOR,
     DAY_TO_NUMBER,
     DEFAULT_UPDATE_INTERVAL,
@@ -180,6 +181,9 @@ class GarminConnectDataUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("Time zone: %s", self.time_zone)
 
         self.api = Garmin(is_cn=self._in_china)
+        proxy = entry.data.get(CONF_PROXY)
+        if proxy:
+            self.api.client.cs.proxies = {"https": proxy, "http": proxy}
 
         super().__init__(hass, _LOGGER, name=DOMAIN,
                          update_interval=DEFAULT_UPDATE_INTERVAL)

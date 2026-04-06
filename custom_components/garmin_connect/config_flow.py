@@ -14,7 +14,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_ID, CONF_TOKEN, CONF_PASSWORD, CONF_USERNAME
 import voluptuous as vol
 
-from .const import CONF_MFA, DOMAIN
+from .const import CONF_MFA, CONF_PROXY, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         self.data_schema = {
             vol.Required(CONF_USERNAME): str,
             vol.Required(CONF_PASSWORD): str,
+            vol.Optional(CONF_PROXY): str,
         }
         self.mfa_data_schema = {
             vol.Required(CONF_MFA): str,
@@ -44,6 +45,7 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         self._mfa_code: str | None = None
         self._username: str | None = None
         self._password: str | None = None
+        self._proxy: str | None = None
         self._in_china = False
 
     async def _async_garmin_connect_login(self, step_id: str) -> ConfigFlowResult:
@@ -67,6 +69,9 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
         self._api = Garmin(email=self._username,
                            password=self._password, return_on_mfa=True, is_cn=self._in_china)
+
+        if self._proxy:
+            self._api.client.cs.proxies = {"https": self._proxy, "http": self._proxy}
 
         try:
             self._login_result1, self._login_result2 = await self.hass.async_add_executor_job(self._api.login)
@@ -132,6 +137,8 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
             CONF_ID: self._username,
             CONF_TOKEN: self._api.client.dumps(),
         }
+        if self._proxy:
+            config_data[CONF_PROXY] = self._proxy
         existing_entry = await self.async_set_unique_id(self._username)
 
         if existing_entry:
@@ -159,6 +166,7 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
         self._username = user_input[CONF_USERNAME]
         self._password = user_input[CONF_PASSWORD]
+        self._proxy = user_input.get(CONF_PROXY) or None
 
         return await self._async_garmin_connect_login(step_id="user")
 
@@ -191,6 +199,7 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         # For backward compatibility: try CONF_USERNAME first, fall back to CONF_ID
         self._username = entry_data.get(
             CONF_USERNAME) or entry_data.get(CONF_ID)
+        self._proxy = entry_data.get(CONF_PROXY)
 
         return await self.async_step_reauth_confirm()
 
@@ -209,11 +218,13 @@ class GarminConnectConfigFlowHandler(ConfigFlow, domain=DOMAIN):
                     {
                         vol.Required(CONF_USERNAME, default=self._username): str,
                         vol.Required(CONF_PASSWORD): str,
+                        vol.Optional(CONF_PROXY, default=self._proxy or ""): str,
                     }
                 ),
             )
 
         self._username = user_input[CONF_USERNAME]
         self._password = user_input[CONF_PASSWORD]
+        self._proxy = user_input.get(CONF_PROXY) or None
 
         return await self._async_garmin_connect_login(step_id="reauth_confirm")
